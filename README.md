@@ -19,6 +19,15 @@ is a planned future source, not part of this release.
 - `VALIDATION.md`: the validation report for this release.
 - `LICENSE`: MIT.
 
+## v1ord: ordering experiment
+
+`data_v1ord.jsonl` holds 4,000 sequences designed so order is the only signal:
+every sequence carries exactly 8 events with identical type and exit-code bags
+across labels, and identical final state (exit 0, clean). Procedures differ
+only in where the wait falls in the failure lifecycle. Produced by
+`collect_v1ord.py`. Field-only baseline scores chance; ordered GRU scores
+1.0000 on two seeds. See VALIDATION_V1ORD.md.
+
 ## Labels
 
 | Label | Count | Meaning |
