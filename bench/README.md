@@ -8,6 +8,12 @@ published.
 This harness is frozen. Later versions add configs, not changes to how configs
 are measured.
 
+One post-freeze addition, recorded for auditability: `ordered_probe` gained a
+`use_durations` flag defaulting to `True`. Without it the harness could not
+express a config whose observable set excludes duration, which v2 requires
+after its collection preflight. The default preserves every released result,
+verified unchanged: v0 0.7500 and v1ord 1.0000 before and after.
+
 ## Why this exists
 
 Auditing v0 and v1ord surfaced findings that a single accuracy number hides:

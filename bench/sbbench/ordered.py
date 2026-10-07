@@ -95,10 +95,10 @@ def duration_separability(rows: list[dict], a: str, b: str) -> dict:
 
 
 class GRU(nn.Module):
-    def __init__(self, n_types: int, n_classes: int, width: int = 32) -> None:
+    def __init__(self, n_types: int, n_classes: int, n_feats: int = 2, width: int = 32) -> None:
         super().__init__()
         self.embed = nn.Embedding(n_types, 8)
-        self.gru = nn.GRU(8 + 2, width, batch_first=True)
+        self.gru = nn.GRU(8 + n_feats, width, batch_first=True)
         self.head = nn.Linear(width, n_classes)
 
     def forward(self, types: torch.Tensor, feats: torch.Tensor) -> torch.Tensor:
@@ -106,7 +106,42 @@ class GRU(nn.Module):
         return self.head(hid[-1])
 
 
-def ordered_probe(rows: list[dict], y: np.ndarray, epochs: int = 30) -> list[float]:
+#: Per-event scalar channels the temporal probe may observe. A config's
+#: declared observable set selects a subset of these. ``use_durations=False``
+#: exists because v2 removed duration from its observable set after the
+#: collection preflight showed real executions make timing informative.
+CHANNELS = ("exit_code", "duration")
+
+
+def event_channels(event: dict, channels: tuple[str, ...]) -> list[float]:
+    """Observable scalar channels for one event, under a declared budget."""
+    out = []
+    for name in channels:
+        if name == "exit_code":
+            code = event.get("exit_code")
+            out.append(float(code) if code is not None else 0.0)
+        elif name == "duration":
+            out.append(event.get("duration") or 0.0)
+        else:
+            raise ValueError(f"unknown channel {name!r}")
+    return out
+
+
+def ordered_probe(
+    rows: list[dict],
+    y: np.ndarray,
+    epochs: int = 30,
+    use_durations: bool = True,
+) -> list[float]:
+    """Temporal probe over the ordered trace.
+
+    ``use_durations`` defaults to True, which is the configuration every
+    released result was measured under. Passing False restricts the probe to
+    exit codes, which is how a config whose observable set excludes duration is
+    evaluated.
+    """
+    channels = CHANNELS if use_durations else tuple(c for c in CHANNELS if c != "duration")
+    n_feats = len(channels)
     n_types = len(EVENT_TYPES)
     t_index = {t: i for i, t in enumerate(EVENT_TYPES)}
     types, feats = [], []
@@ -114,13 +149,12 @@ def ordered_probe(rows: list[dict], y: np.ndarray, epochs: int = 30) -> list[flo
         seq_t, seq_f = [], []
         for e in row["events"]:
             seq_t.append(t_index[e["type"]])
-            code = e.get("exit_code")
-            seq_f.append([float(code) if code is not None else 0.0, e.get("duration") or 0.0])
+            seq_f.append(event_channels(e, channels))
         types.append(seq_t)
         feats.append(seq_f)
     T = max(len(s) for s in types)
     types_a = np.zeros((len(rows), T), dtype=np.int64)
-    feats_a = np.zeros((len(rows), T, 2), dtype=np.float32)
+    feats_a = np.zeros((len(rows), T, n_feats), dtype=np.float32)
     for i, (ts, fs) in enumerate(zip(types, feats)):
         types_a[i, : len(ts)] = ts
         feats_a[i, : len(fs)] = fs
@@ -129,7 +163,7 @@ def ordered_probe(rows: list[dict], y: np.ndarray, epochs: int = 30) -> list[flo
         torch.manual_seed(seed)
         idx = np.arange(len(rows))
         tr, te = train_test_split(idx, test_size=0.2, random_state=seed, stratify=y)
-        model = GRU(n_types, len(set(y.tolist())))
+        model = GRU(n_types, len(set(y.tolist())), n_feats=n_feats)
         opt = torch.optim.Adam(model.parameters(), lr=1e-3)
         xt = torch.tensor(types_a[tr])
         xf = torch.tensor(feats_a[tr])

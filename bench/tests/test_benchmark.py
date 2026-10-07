@@ -293,3 +293,32 @@ def test_v0_alias_is_detected_in_released_data():
 
     rows, _, _ = probe.load(str(V0))
     assert ("nonzero_exit", "recovered") in ordered.detect_aliases(rows)
+
+# --- observable-set parameterization ---------------------------------------
+
+
+def test_event_channels_respects_declared_budget():
+    ev = {"type": "execute", "exit_code": 3, "duration": 0.5}
+    assert ordered.event_channels(ev, ordered.CHANNELS) == [3.0, 0.5]
+    assert ordered.event_channels(ev, ("exit_code",)) == [3.0]
+
+
+def test_event_channels_rejects_unknown_channel():
+    with pytest.raises(ValueError):
+        ordered.event_channels({"type": "execute"}, ("cpu_share",))
+
+
+def test_ordered_probe_accepts_restricted_budget():
+    """A durations-free observable set must be expressible, since v2 adopts it."""
+    rows = synthetic_rows()
+    labels = sorted({r["label"] for r in rows})
+    import numpy as np
+
+    y = np.array([labels.index(r["label"]) for r in rows])
+    with_dur = ordered.ordered_probe(rows, y, epochs=2)
+    without = ordered.ordered_probe(rows, y, epochs=2, use_durations=False)
+    assert len(with_dur) == len(without) == len(ordered.SEEDS)
+
+
+def test_default_budget_still_includes_duration():
+    assert "duration" in ordered.CHANNELS

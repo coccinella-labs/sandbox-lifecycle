@@ -21,25 +21,34 @@ observed prefix. It is never a function of a scalar, a threshold, or a total.
 
 ## 4. Which non-order features are allowed
 
-Per event: type (one-hot), exit code, duration. Per prefix: the same,
-multiset-reduced. No elapsed wall-clock time, because it is recoverable from
-the sum of durations and reintroduces the v1ord leak.
+Per event: type (one-hot) and exit code. Nothing else.
+
+Duration was removed from the observable set. The collection preflight showed
+that real executions make duration informative: `durations_only` reached 0.3400,
+`first_execute_duration` 0.4000, and the full order-blind ceiling 0.6900, with a
+Holm-corrected KS rejection where the second `execute` runs measurably slower
+after a wait than after a recover. Timing is therefore not an inert nuisance
+variable in this environment, and no observable set containing it yields an
+order-only claim.
+
+This is fallback 1 of the collection design. It is preferred over magnitude-blind
+timing because it introduces no new semantic variable that would need its own
+definition and validation.
+
+No elapsed wall-clock time either, for the same reason.
 
 ## 5. What must be unavailable to every order-blind baseline
 
-Duration must carry zero information about the label, by construction rather
-than by observation. Every event duration is drawn from one
-label-independent distribution, so no duration aggregate can correlate with the
-label even in expectation. This is the single requirement that v1ord failed:
-its durations reached 0.6996 alone and 0.9579 combined.
+Nothing further is required, because duration is no longer observable. The
+remaining order-blind features are counts and exit codes, and these are free to
+vary across labels at a given cutoff. A prefix multiset that differs across
+classes is legitimate information, not a leak, because both baselines receive
+the identical prefix.
 
-Counts and exit codes are free to vary across labels at a given cutoff. A
-prefix multiset that differs across classes is legitimate information, not a
-leak, because both baselines receive the identical prefix. This distinction is
-load-bearing and was wrong in the first draft of this page: an order-blind
-ceiling of 0.5000 at t=3 is correct behaviour, because the prefix multiset
-identifies `delayed_fault` and nothing else. The invariant is therefore
-duration-specific, not a blanket requirement that order-blind sit at chance.
+This distinction is load-bearing and was wrong in the first draft of this page:
+an order-blind ceiling of 0.5000 at t=3 is correct behaviour, because the prefix
+multiset identifies `delayed_fault` and nothing else. The invariant is about
+what is observable, not a blanket requirement that order-blind sit at chance.
 
 ## 6. What temporal property carries the remaining signal
 
@@ -62,9 +71,8 @@ hold on the pilot at three seeds, chance 0.2500:
 | Condition | Threshold |
 |---|---|
 | rows per label | >= 200, so the temporal probe is trained rather than undertrained |
-| `durations_only` at t=8 | <= 0.3000 |
 | `order_blind_counts` at t=8 | <= 0.3000 |
-| `order_blind_full` minus prefix composition at t=8 | <= 0.3000 |
+| `order_blind_full` under the declared observable set at t=8 | <= 0.3000 |
 | GRU at t=8 | >= 0.9500, and within 0.05 of `order_ceiling(8)` |
 | GRU captures >= 90% of `headroom(t)` for every t in {4,5,6,7,8} | ratio >= 0.90 |
 | GRU at t=3 | within 0.05 of `blind_ceiling(3)` = 0.5000, a negative control |
@@ -86,8 +94,12 @@ fixed, and the sweep is reported.
 
 ## Known realism cost
 
-Label-independent durations are easier to guarantee synthetically than in a
-real sandbox, where a slow process is slow for a reason. A real collection
-must establish duration independence by measurement design or by
-normalization, and must re-run this harness to prove it held. This is a
-limitation of the approach, not a solved problem.
+This design cannot speak to timing. It asks whether ordering alone carries the
+label once execution time is withheld, which is a real and answerable systems
+question, but it is not a claim about temporal patterns in wall-clock data. A
+benchmark about realistic timing variation is a separate experiment and needs
+its own design.
+
+The 2.0s wait budget remains fixed on purpose. It is label-invariant, since
+every procedure contains exactly one wait, so it costs nothing here. Jittering
+it would add a variable without changing the information boundary.

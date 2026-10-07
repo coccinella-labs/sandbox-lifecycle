@@ -1,52 +1,55 @@
-# v2 pilot
+# v2 pilot and re-pilot
 
-A deliberately tiny synthetic dataset whose purpose is to attack the v2
-information boundary before any collection happens. It does not demonstrate
-that order helps. It tries to break the design.
-
-Run against the frozen harness in `bench/`:
-
-```bash
-python design/v2pilot/pilot.py
-```
-
-Exits non-zero if any acceptance condition fails, so it is usable as a gate.
+Two pilots. The first attacks the spec before any collection. The second
+re-runs acceptance after the collection preforced the observable set to exclude
+duration.
 
 ## Files
 
-- `pilot.py`: generator plus the attack suite.
+- `pilot.py`: generator plus the original attack suite, durations included.
 - `ceilings.py`: exact achievable ceilings at each cutoff.
+- `repilot.py`: acceptance conditions under the durations-free observable set.
+- `sizecheck.py`: separates design failure from undertraining.
 
-## Ceilings
+## Original pilot
 
-Absolute margins are incoherent when a prefix does not determine the label, so
-acceptance is measured against computable ceilings:
+Ran at 200 rows per label, all 14 conditions hold. It also invalidated the first
+draft of the information boundary, which required order-blind ceilings to sit at
+chance. That is wrong whenever a prefix multiset legitimately differs across
+labels. See `v2pilot/README.md` history in git.
 
-| cutoff | blind ceiling | order ceiling | headroom |
-|---|---|---|---|
-| 2 | 0.5000 | 0.5000 | 0.0000 |
-| 3 | 0.5000 | 0.5000 | 0.0000 |
-| 4 | 0.5000 | 0.7500 | 0.2500 |
-| 5 | 0.5000 | 1.0000 | 0.5000 |
-| 6 | 0.5000 | 1.0000 | 0.5000 |
-| 7 | 0.2500 | 1.0000 | 0.7500 |
-| 8 | 0.2500 | 1.0000 | 0.7500 |
+## Preflight consequence
 
-t=2 and t=3 are negative controls. Only `delayed_fault` is identifiable from
-that prefix, so no model of any kind may exceed 0.5000. A model scoring above
-it would indicate a leak rather than skill.
+The collection preflight showed real executions make duration informative:
+`order_blind_full` reached 0.6900 with durations observable. Fallback 1 was
+adopted, so the observable set is now event type and exit code only.
 
-## Pilot size
+## Re-pilot
 
-200 rows per label, 800 total. The first run used 50 per label and the
-temporal probe scored 0.7375 at full trace, purely from undertraining: at 200
-per label it reaches 1.0000. Pilot size is part of the acceptance criteria for
-this reason.
+`repilot.py` re-runs acceptance with `use_durations=False`.
 
-## Result
+On real preflight traces, 8 of 12 conditions hold. The declared-budget and
+aliasing conditions pass at exactly chance on all three order-blind families,
+which is the new evidence that matters: removing duration restores
+independence on real executions.
 
-All 14 conditions hold. Duration decoupling removes the leak that made the
-v1ord order-blind ceiling 0.9579; durations alone score 0.2458 and every
-non-order feature except prefix composition scores 0.2563, both at chance.
+The four temporal conditions fail at 0.7500, which is undertraining rather than
+a design failure. The preflight supplies 25 repeats per label and the spec
+requires 200. `sizecheck.py` demonstrates the mechanism:
 
-The design holds on the pilot. Collection is not authorized by that result.
+| rows per label | rows | GRU at t=8, no durations | blind ceiling | order ceiling |
+|---|---|---|---|---|
+| 25 | 100 | 0.7500 | 0.2500 | 1.0000 |
+| 100 | 400 | 0.8750 | 0.2500 | 1.0000 |
+| 200 | 800 | 1.0000 | 0.2500 | 1.0000 |
+| 400 | 1600 | 1.0000 | 0.2500 | 1.0000 |
+
+The real preflight reproduces the 25-row artifact exactly at 0.7500. At the
+spec's stated minimum the full condition set passes, 12 of 12.
+
+## Combined evidence
+
+Real traces establish the observable-set claim: order-blind sits at 0.2500 and
+zero aliases once duration is withheld. The synthetic pilot at adequate size
+establishes the temporal claim. Neither alone would be sufficient, and the
+split is recorded rather than papered over.
