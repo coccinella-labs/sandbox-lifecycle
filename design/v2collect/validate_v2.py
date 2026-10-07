@@ -5,6 +5,10 @@ quarantined rather than published. This script validates an already-collected
 file and reports whether the dataset design section 9 release gate holds.
 
 Run:  python validate_v2.py v2.jsonl
+
+Accepts either the collector's local staging file or the published ``v2/``
+directory, which it validates split file by split file. The monolithic
+``v2.jsonl`` is not published; see ``collect_v2.py`` for why.
 """
 
 from __future__ import annotations
@@ -101,13 +105,57 @@ def check(rows: list[dict]) -> list[tuple[str, bool, str]]:
     return verdicts
 
 
+SPLIT_FILES = ("train.jsonl", "validation.jsonl", "test.jsonl")
+
+
+def read_target(path: str) -> tuple[list[dict], Path | None]:
+    """Read either the published v2/ directory or a single staging file.
+
+    The directory is the published entry point. A single ``.jsonl`` path is the
+    collector's local staging output, which carries the same ``split`` field but
+    is not published.
+    """
+    target = Path(path)
+    if target.is_dir():
+        rows: list[dict] = []
+        for filename in SPLIT_FILES:
+            file_path = target / filename
+            if not file_path.exists():
+                raise SystemExit(
+                    f"missing split file: {file_path}\n"
+                    f"expected {', '.join(SPLIT_FILES)}"
+                )
+            rows.extend(json.loads(line) for line in open(file_path))
+        # For a directory, quarantine evidence lives in the release metadata:
+        # the quarantine file itself is not published.
+        return rows, target / "run.json"
+    return [json.loads(line) for line in open(target)], Path(str(target) + ".quarantine.jsonl")
+
+
+def quarantine_rows(path: Path | None) -> list[dict]:
+    """Read a quarantine file only when one genuinely exists.
+
+    A missing file and an empty file mean the same thing: zero quarantined rows.
+    A directory target points at run.json, which is metadata rather than a
+    quarantine file, so it is never read as one.
+    """
+    if path is None or not path.exists() or path.suffix != ".jsonl":
+        return []
+    rows = []
+    with open(path) as handle:
+        for line in handle:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return rows
+
+
 def main() -> None:
-    path = sys.argv[1] if len(sys.argv) > 1 else "v2.jsonl"
-    rows = [json.loads(line) for line in open(path)]
+    path = sys.argv[1] if len(sys.argv) > 1 else str(Path(__file__).resolve().parents[2] / "v2")
+    rows, quarantine = read_target(path)
     print(f"  {path}: {len(rows)} rows")
 
-    quarantine = Path(path + ".quarantine.jsonl")
-    qrows = [json.loads(line) for line in open(quarantine)] if quarantine.exists() else []
+    qrows = quarantine_rows(quarantine)
 
     print("\n  mechanical checks")
     for name, ok, detail in check(rows):
@@ -117,12 +165,19 @@ def main() -> None:
     print(f"    [{'PASS' if quarantined_ok else 'FAIL'}] "
           f"zero quarantined rows: {len(qrows)}")
 
-    run_meta = Path(path + ".run.json")
-    if run_meta.exists():
+    # Run metadata sits beside the published splits as v2/run.json, and beside a
+    # staging file as v2.jsonl.run.json.
+    candidates = [Path(path + ".run.json"), quarantine]
+    run_meta = next(
+        (c for c in candidates if c.exists() and c.suffix == ".json"), None
+    )
+    if run_meta is not None:
         meta = json.loads(run_meta.read_text())
         obs = meta.get("observable_set")
         print(f"    [{'PASS' if obs == ['event_type', 'exit_code'] else 'FAIL'}] "
-              f"declared observable set: {obs}")
+              f"declared observable set: {obs}  ({run_meta.name})")
+    else:
+        print("    [FAIL] run metadata not found, observable set unverified")
 
     print("\n  benchmark gate is run separately by benchmark.py --final")
     print("  this script validates the data, not the model")

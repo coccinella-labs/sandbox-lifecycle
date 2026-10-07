@@ -4,7 +4,14 @@ Predecessors: `v2-information-boundary.md` (observable set), `v2-collection-desi
 (duration-independence protocol), `v2preflight/PREFLIGHT.md` (independence
 failed), `v2pilot/TEMPORAL_PREFLIGHT.md` (temporal question cleared).
 
-Status: collection authorized. Nothing collected under this design yet.
+Status: **implemented and released.** Collected 400 repeats per procedure,
+1,600 traces, published as native train/validation/test splits at 1,120 / 240 /
+240. Final test result: 12 of 12 conditions hold, scored once. See
+`v2collect/FINAL_TEST.md` and the released `v2/` directory.
+
+No model was trained. That was the deliberate outcome, recorded in section 1
+below, because the full-trace task saturates and cannot discriminate between
+architectures.
 
 ## 1. Primary artifact
 

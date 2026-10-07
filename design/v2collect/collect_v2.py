@@ -20,6 +20,13 @@ stored for auditability and are not observable to any model.
 
 Run:  python collect_v2.py v2.jsonl 400
 
+The local output name above is a staging convenience only. The published
+repository stores the splits as native files under ``v2/`` plus ``v2/run.json``;
+the monolithic ``v2.jsonl`` is deliberately not published, because on that path
+``load_dataset`` exposes one split with ``split`` as a plain column and
+``ds["test"]`` does not exist. See the benchmark runner for the published
+entry point.
+
 The collected file is published as three native splits under ``v2/`` plus run
 metadata at ``v2/run.json``. The monolithic collection file is deliberately not
 published: on that path ``load_dataset`` exposes one 1600-row split with

@@ -59,6 +59,12 @@ preflight.
 ## Combined evidence
 
 Real traces establish the observable-set claim: order-blind sits at 0.2500 and
-zero aliases once duration is withheld. The synthetic pilot at adequate size
-establishes the temporal claim. Neither alone would be sufficient, and the
-split is recorded rather than papered over.
+zero aliases once duration is withheld. The temporal claim rests on the
+800-trace real preflight above, not on the synthetic pilot; the synthetic pilot
+only demonstrated the size effect, showing that 25 repeats per label
+undertrains the probe and 200 does not. Neither real run alone would cover both
+claims, so the split is recorded rather than papered over.
+
+The released benchmark that supersedes all of this for result purposes is
+`design/v2collect/FINAL_TEST.md`, scored once on the untouched test split of the
+1,600-trace release.

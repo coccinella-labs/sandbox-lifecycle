@@ -1,7 +1,26 @@
 # v2 information-boundary specification
 
-Status: draft, not collected. This page defines the claim before any data
-exists, so the claim can be attacked rather than retrofitted.
+> **Superseded. Retained as evidence, not as the current specification.**
+>
+> This is the pre-collection draft, written before any data existed so the
+> claim could be attacked rather than retrofitted. It was attacked and partly
+> rejected. Two things in it describe a different experiment from the one that
+> shipped, and are the reason it must not be read as current:
+>
+> - **It includes `duration` in the observable set.** The collection preflight
+>   found that real executions make duration label-informative
+>   (`order_blind_full` reached 0.6900), so fallback 1 was adopted and duration
+>   was removed entirely. See `v2preflight/PREFLIGHT.md`.
+> - **It tests cutoffs `{3, 5, 7, 8}`.** The shipped benchmark sweeps
+>   `{2, 3, 4, 5, 6, 7, 8}`, because `t=2` and `t=3` turned out to be negative
+>   controls with zero headroom, which the narrower set did not reveal.
+>
+> Final observable boundary: **`event_type + exit_code`**, duration and `t`
+> withheld. The authoritative documents are
+> `v2-dataset-and-benchmark-design.md` for the shipped design and
+> `v2preflight/PREFLIGHT.md` for why duration was excluded.
+
+Status at time of writing: draft, not collected.
 
 ## 1. What is observable at cutoff t
 

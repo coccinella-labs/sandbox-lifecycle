@@ -1,6 +1,23 @@
 # v2 collection design
 
-Predecessor: `v2-information-boundary.md`. Status: design, not collected.
+> **Superseded for collection. Retained as evidence.**
+>
+> This is the pre-collection design for *proving duration independence*, and it
+> did its job: the measurements it specifies (D1 through D4) found that
+> independence **fails** on real executions, which is why the observable set
+> changed. The 25-repeat pilot below is the preflight experiment, not the
+> collection specification.
+>
+> The shipped collection is 400 repeats per procedure, 1,600 traces, published
+> as native train/validation/test splits at 1,120 / 240 / 240. See
+> `v2-dataset-and-benchmark-design.md`, and `v2preflight/PREFLIGHT.md` for the
+> measurement outcome.
+>
+> The section 5 failure table and the fallback hierarchy remain accurate
+> descriptions of how the decision was reached.
+
+Predecessor: `v2-information-boundary.md`. Status at time of writing: design,
+not collected.
 
 This document specifies how real sandbox traces would be produced and, most
 importantly, how duration independence would be measured and what constitutes

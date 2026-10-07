@@ -15,9 +15,20 @@ architectures.
 Model selection uses train and validation only. The test split is scored once,
 by ``--final``, and the report marks which split each number came from.
 
+The published repository stores the splits as native files:
+
+    v2/
+      train.jsonl
+      validation.jsonl
+      test.jsonl
+      run.json
+
+Pass the directory. A single ``.jsonl`` path is also accepted and is filtered by
+its ``split`` field, which is how the collector's local staging file is run.
+
 Run:
-    python benchmark.py --data v2.jsonl
-    python benchmark.py --data v2.jsonl --final
+    python benchmark.py --data ../../v2
+    python benchmark.py --data ../../v2 --final
 """
 
 from __future__ import annotations
@@ -57,20 +68,48 @@ GRU_MIN_T8 = 0.9500
 BLIND_MAX = 0.3000
 
 
+#: Published native split filenames, read when ``--data`` is a directory.
+SPLIT_FILES = {"train": "train.jsonl", "validation": "validation.jsonl", "test": "test.jsonl"}
+
+
 def load(path: str):
     """Return the three splits separately, plus the pooled rows.
+
+    ``path`` may be the published ``v2/`` directory, in which case the native
+    split files are read directly, or a single ``.jsonl`` file, which is filtered
+    by its ``split`` field. The directory form is the published entry point; the
+    single-file form exists for the collector's local staging output, which is
+    deliberately not published.
 
     Fit and evaluation data are kept apart on purpose. The design requires the
     test split to be scored exactly once, so the runner must be able to fit on
     one split and score on another rather than internally resampling whatever
     it was handed.
     """
-    raw = [json.loads(line) for line in open(path)]
+    target = Path(path)
+    raw: list[dict] = []
+    from_dir: dict[str, list[dict]] = {}
+
+    if target.is_dir():
+        for name, filename in SPLIT_FILES.items():
+            file_path = target / filename
+            if not file_path.exists():
+                raise SystemExit(
+                    f"missing split file: {file_path}\n"
+                    f"expected the published layout with {', '.join(SPLIT_FILES.values())}"
+                )
+            from_dir[name] = [json.loads(line) for line in open(file_path)]
+            raw.extend(from_dir[name])
+    else:
+        raw = [json.loads(line) for line in open(target)]
+
     labels = sorted({r["label"] for r in raw})
     index = {label: i for i, label in enumerate(labels)}
 
     def take(split: str):
-        sel = [r for r in raw if r.get("split") == split]
+        sel = from_dir.get(split) if from_dir else [
+            r for r in raw if r.get("split") == split
+        ]
         return (
             [{"events": r["events"], "label": r["label"]} for r in sel],
             np.array([index[r["label"]] for r in sel]),
@@ -185,7 +224,11 @@ def leakage_report(train, y_train, ev, y_ev) -> list[tuple[str, bool, str]]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default="v2.jsonl")
+    ap.add_argument(
+        "--data",
+        default=str(HERE.parents[1] / "v2"),
+        help="published v2/ directory, or a single split-bearing .jsonl file",
+    )
     ap.add_argument("--final", action="store_true",
                     help="score the test split, once, for a release")
     args = ap.parse_args()
@@ -198,6 +241,7 @@ def main() -> None:
     print("=" * 72)
     print("sandbox-lifecycle v2 benchmark")
     print("=" * 72)
+    print(f"  data source:    {args.data}")
     print(f"  fit on:         train ({len(train)} traces)")
     print(f"  scored on:      {split} ({len(ev)} traces)")
     print(f"  labels:         {len(labels)}, chance {chance:.4f}")

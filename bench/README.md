@@ -114,9 +114,14 @@ chance. If one is not, the gate must either be restated against a narrower
 declared budget, as v1ord's is, or the version does not support an order-based
 claim.
 
+This harness reports the declared-budget, order-blind-ceiling, and diagnostic
+tiers. The shipped v2 benchmark is a separate runner, because v2 evaluates a
+fixed train/validation/test split rather than resampling internally:
+
 ```bash
-python -m sbbench.report v2=v2/data_v2.jsonl
+python ../design/v2collect/benchmark.py --data ../v2
 ```
 
 v2 is design-first: define its information boundary on paper, run a pilot, and
-collect full data only if the pilot passes this harness.
+collect full data only if the pilot passes this harness. That sequence is what
+`design/v2pilot/` and `design/v2preflight/` record.
