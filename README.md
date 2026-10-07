@@ -51,6 +51,13 @@ v1ord labels (all end exit 0, clean; 1,000 each; differ only in wait position):
 | `delayed_fault` | wait first, then fault, recovery, success |
 | `cooldown` | fault, recovery, success, then wait |
 
+## Published artifacts
+
+- Dataset (Hugging Face): https://huggingface.co/datasets/coccinella-labs/sandbox-lifecycle
+  with `v0` and `v1ord` configs.
+- Temporal model (Hugging Face): https://huggingface.co/harpertoken/flow,
+  ordered GRU scoring 1.0000 on both seeds where field-only sits at chance.
+
 ## Use
 
 ```python
