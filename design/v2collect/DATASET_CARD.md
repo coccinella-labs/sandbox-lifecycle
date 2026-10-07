@@ -91,7 +91,7 @@ make timing informative. This is why duration is withheld.
 Repeat-aware and fixed, 70/15/15. Every repeat index belongs entirely to one
 split, so no two executions of the same procedure instance straddle a boundary.
 Split membership is shuffled within contiguous time blocks, so it does not
-correlate with collection time. The full index map is in `v2.jsonl.run.json`.
+correlate with collection time. The full index map is in `v2/run.json`.
 
 Splits are published as native dataset splits, so `test` is reachable directly.
 

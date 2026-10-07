@@ -19,6 +19,12 @@ Observable set is event type and exit code only. Duration and elapsed time are
 stored for auditability and are not observable to any model.
 
 Run:  python collect_v2.py v2.jsonl 400
+
+The collected file is published as three native splits under ``v2/`` plus run
+metadata at ``v2/run.json``. The monolithic collection file is deliberately not
+published: on that path ``load_dataset`` exposes one 1600-row split with
+``split`` as a plain column, so ``ds["test"]`` does not exist. Publishing it
+would create an attractive but broken entry point to the benchmark contract.
 """
 
 from __future__ import annotations
