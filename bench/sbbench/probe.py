@@ -34,10 +34,15 @@ def load(path: str) -> tuple[list[dict], np.ndarray, list[str]]:
 
 def probe(rows: list[dict], y: np.ndarray, featurizer) -> list[float]:
     X = np.array([featurizer(r) for r in rows], dtype=np.float32)
+    counts = np.bincount(y)
+    # Stratification needs at least two rows per class. Small fixtures fall back
+    # to an unstratified split rather than raising, so the report degrades to a
+    # noisy score instead of crashing.
+    stratify = y if counts.min() >= 2 else None
     scores = []
     for seed in SEEDS:
         Xtr, Xte, ytr, yte = train_test_split(
-            X, y, test_size=0.2, random_state=seed, stratify=y
+            X, y, test_size=0.2, random_state=seed, stratify=stratify
         )
         scaler = StandardScaler().fit(Xtr)
         model = MLPClassifier(
