@@ -1,4 +1,6 @@
-# sandbox-lifecycle v0.1.0
+# sandbox-lifecycle
+
+v0.1.0: controlled lifecycle events. v1.0.0: ordering experiment. Both releases live in this repo; see Releases.
 
 Controlled sandbox lifecycle events: 4,000 sequences, each a create, execute,
 exit, and teardown with monotonic timing. Labels derive mechanically from the
@@ -16,7 +18,10 @@ is a planned future source, not part of this release.
   values will differ run to run, which is signal rather than noise.
 - `SCHEMA.md`: field specification, the timeout sentinel, and label rules.
 - `COLLECTION.md`: collection procedure and run provenance.
-- `VALIDATION.md`: the validation report for this release.
+- `VALIDATION.md`: the validation report for v0.1.0.
+- `data_v1ord.jsonl`: 4,000 ordering sequences (v1.0.0).
+- `collect_v1ord.py`: the v1ord collector.
+- `VALIDATION_V1ORD.md`: the validation report for v1ord.
 - `LICENSE`: MIT.
 
 ## v1ord: ordering experiment
@@ -36,6 +41,15 @@ only in where the wait falls in the failure lifecycle. Produced by
 | `nonzero_exit` | 1,000 | fixed script exits 3, clean teardown |
 | `timeout` | 1,000 | killed at the 5s budget, clean teardown |
 | `recovered` | 1,000 | exit 3, prescribed cleanup runs, clean teardown |
+
+v1ord labels (all end exit 0, clean; 1,000 each; differ only in wait position):
+
+| Label | Meaning |
+|---|---|
+| `recover_then_wait` | fault, recovery, wait, then success |
+| `wait_during_outage` | fault, wait during outage, recovery, success |
+| `delayed_fault` | wait first, then fault, recovery, success |
+| `cooldown` | fault, recovery, success, then wait |
 
 ## Use
 
