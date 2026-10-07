@@ -47,6 +47,15 @@ requires 200. `sizecheck.py` demonstrates the mechanism:
 The real preflight reproduces the 25-row artifact exactly at 0.7500. At the
 spec's stated minimum the full condition set passes, 12 of 12.
 
+## Temporal preflight at spec sample size
+
+800 real traces, 200 repeats per procedure, answers the one question the
+100-trace run could not: does ordering remain measurable on real executions
+once the probe has the sample size the spec requires? It does, 8 of 8, with
+both seeds identical at every cutoff. See `TEMPORAL_PREFLIGHT.md`. That run does
+not re-test the observable-set claim, which stays owned by the 100-trace
+preflight.
+
 ## Combined evidence
 
 Real traces establish the observable-set claim: order-blind sits at 0.2500 and
