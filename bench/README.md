@@ -14,6 +14,13 @@ express a config whose observable set excludes duration, which v2 requires
 after its collection preflight. The default preserves every released result,
 verified unchanged: v0 0.7500 and v1ord 1.0000 before and after.
 
+A second post-freeze addition: `probe` and `ordered_probe` accept optional
+`eval_rows` and `eval_y`, which fit on one set and score on another instead of an
+internal resplit. Without this the harness cannot honour a fixed
+train/validation/test protocol, so a config with a reserved test split could not
+be scored without spending it during development. Both parameters default to
+None and released results are unchanged.
+
 ## Why this exists
 
 Auditing v0 and v1ord surfaced findings that a single accuracy number hides:

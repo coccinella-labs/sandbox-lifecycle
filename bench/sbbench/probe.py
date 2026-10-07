@@ -32,9 +32,27 @@ def load(path: str) -> tuple[list[dict], np.ndarray, list[str]]:
     return rows, y, labels
 
 
-def probe(rows: list[dict], y: np.ndarray, featurizer) -> list[float]:
+def probe(
+    rows: list[dict],
+    y: np.ndarray,
+    featurizer,
+    eval_rows: list[dict] | None = None,
+    eval_y: np.ndarray | None = None,
+) -> list[float]:
     X = np.array([featurizer(r) for r in rows], dtype=np.float32)
     counts = np.bincount(y)
+    if eval_rows is not None:
+        # Fit on rows, score on a separate evaluation set. This is what lets a
+        # config honour a fixed split with the evaluation set untouched.
+        Xe = np.array([featurizer(r) for r in eval_rows], dtype=np.float32)
+        scores = []
+        for seed in SEEDS:
+            scaler = StandardScaler().fit(X)
+            model = MLPClassifier(
+                hidden_layer_sizes=(32,), max_iter=3000, random_state=seed
+            ).fit(scaler.transform(X), y)
+            scores.append(model.score(scaler.transform(Xe), eval_y))
+        return scores
     # Stratification needs at least two rows per class. Small fixtures fall back
     # to an unstratified split rather than raising, so the report degrades to a
     # noisy score instead of crashing.

@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sbbench import features, ordered  # noqa: E402
+from sbbench import features, ordered, probe  # noqa: E402
 
 
 def event(type_: str, duration: float | None = None, exit_code: int | None = None) -> dict:
@@ -322,3 +322,38 @@ def test_ordered_probe_accepts_restricted_budget():
 
 def test_default_budget_still_includes_duration():
     assert "duration" in ordered.CHANNELS
+
+
+def test_probe_supports_separate_evaluation_set():
+    """Fit and evaluate sets must be separable so a fixed split is honorable."""
+    import numpy as np
+
+    rows = synthetic_rows()
+    labels = sorted({r["label"] for r in rows})
+    y = np.array([labels.index(r["label"]) for r in rows])
+    half = len(rows) // 2
+    train, test = rows[:half], rows[half:]
+    yt, ye = y[:half], y[half:]
+    fn = features.FAMILIES["order_blind_counts"]["featurizer"]
+    scores = probe.probe(train, yt, fn, eval_rows=test, eval_y=ye)
+    assert len(scores) == len(probe.SEEDS)
+    assert all(0.0 <= s <= 1.0 for s in scores)
+
+
+def test_ordered_probe_supports_separate_evaluation_set():
+    import numpy as np
+
+    rows = synthetic_rows()
+    labels = sorted({r["label"] for r in rows})
+    y = np.array([labels.index(r["label"]) for r in rows])
+    half = len(rows) // 2
+    scores = ordered.ordered_probe(
+        rows[:half], y[:half], epochs=2, eval_rows=rows[half:], eval_y=y[half:]
+    )
+    assert len(scores) == len(ordered.SEEDS)
+
+
+def test_event_channel_helpers_are_pure():
+    from sbbench.ordered import event_channels
+    ev = {"type": "execute", "exit_code": 0, "duration": 0.25}
+    assert event_channels(ev, ("exit_code", "duration")) == [0.0, 0.25]

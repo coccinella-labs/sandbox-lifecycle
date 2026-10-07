@@ -127,23 +127,8 @@ def event_channels(event: dict, channels: tuple[str, ...]) -> list[float]:
     return out
 
 
-def ordered_probe(
-    rows: list[dict],
-    y: np.ndarray,
-    epochs: int = 30,
-    use_durations: bool = True,
-) -> list[float]:
-    """Temporal probe over the ordered trace.
-
-    ``use_durations`` defaults to True, which is the configuration every
-    released result was measured under. Passing False restricts the probe to
-    exit codes, which is how a config whose observable set excludes duration is
-    evaluated.
-    """
-    channels = CHANNELS if use_durations else tuple(c for c in CHANNELS if c != "duration")
-    n_feats = len(channels)
-    n_types = len(EVENT_TYPES)
-    t_index = {t: i for i, t in enumerate(EVENT_TYPES)}
+def _encode(rows: list[dict], channels: tuple[str, ...], t_index: dict[str, int]):
+    """Pad a batch of traces to equal length and return (types, features)."""
     types, feats = [], []
     for row in rows:
         seq_t, seq_f = [], []
@@ -154,23 +139,60 @@ def ordered_probe(
         feats.append(seq_f)
     T = max(len(s) for s in types)
     types_a = np.zeros((len(rows), T), dtype=np.int64)
-    feats_a = np.zeros((len(rows), T, n_feats), dtype=np.float32)
+    feats_a = np.zeros((len(rows), T, len(channels)), dtype=np.float32)
     for i, (ts, fs) in enumerate(zip(types, feats)):
         types_a[i, : len(ts)] = ts
         feats_a[i, : len(fs)] = fs
+    return types_a, feats_a
+
+
+def ordered_probe(
+    rows: list[dict],
+    y: np.ndarray,
+    epochs: int = 30,
+    use_durations: bool = True,
+    eval_rows: list[dict] | None = None,
+    eval_y: np.ndarray | None = None,
+) -> list[float]:
+    """Temporal probe over the ordered trace.
+
+    ``use_durations`` defaults to True, which is the configuration every
+    released result was measured under. Passing False restricts the probe to
+    exit codes, which is how a config whose observable set excludes duration is
+    evaluated.
+
+    ``eval_rows`` and ``eval_y`` fit on ``rows`` and score on the evaluation
+    set instead of an internal split. Both default to None, which preserves the
+    original behaviour. Passing them is what lets a config honour a fixed
+    train/validation/test protocol with the evaluation split untouched.
+    """
+    channels = CHANNELS if use_durations else tuple(c for c in CHANNELS if c != "duration")
+    n_feats = len(channels)
+    n_types = len(EVENT_TYPES)
+    t_index = {t: i for i, t in enumerate(EVENT_TYPES)}
+    types_a, feats_a = _encode(rows, channels, t_index)
+    if eval_rows is not None:
+        eval_types, eval_feats = _encode(eval_rows, channels, t_index)
     scores = []
     for seed in SEEDS:
         torch.manual_seed(seed)
-        idx = np.arange(len(rows))
-        tr, te = train_test_split(idx, test_size=0.2, random_state=seed, stratify=y)
+        if eval_rows is None:
+            idx = np.arange(len(rows))
+            tr, te = train_test_split(idx, test_size=0.2, random_state=seed, stratify=y)
+            xtr_t, xtr_f, xte_t, xte_f = types_a[tr], feats_a[tr], types_a[te], feats_a[te]
+            ytr, yte = y[tr], y[te]
+        else:
+            xtr_t, xtr_f = types_a, feats_a
+            xte_t, xte_f = eval_types, eval_feats
+            ytr, yte = y, eval_y
         model = GRU(n_types, len(set(y.tolist())), n_feats=n_feats)
         opt = torch.optim.Adam(model.parameters(), lr=1e-3)
-        xt = torch.tensor(types_a[tr])
-        xf = torch.tensor(feats_a[tr])
-        yt = torch.tensor(y[tr])
+        xt = torch.tensor(xtr_t)
+        xf = torch.tensor(xtr_f)
+        yt = torch.tensor(ytr)
         loss_fn = nn.CrossEntropyLoss()
         gen = torch.Generator().manual_seed(seed)
-        n = len(tr)
+        n = len(ytr)
         for _ in range(epochs):
             model.train()
             perm = torch.randperm(n, generator=gen)
@@ -181,8 +203,8 @@ def ordered_probe(
                 opt.step()
         model.eval()
         with torch.no_grad():
-            pred = model(torch.tensor(types_a[te]), torch.tensor(feats_a[te])).argmax(1)
-        scores.append(float((pred.numpy() == y[te]).mean()))
+            pred = model(torch.tensor(xte_t), torch.tensor(xte_f)).argmax(1)
+        scores.append(float((pred.numpy() == yte).mean()))
     return scores
 
 
