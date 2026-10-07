@@ -1,0 +1,17 @@
+{
+  "collector_version": "0.0.0-preflight",
+  "os": "Darwin",
+  "release": "27.0.0",
+  "machine": "arm64",
+  "python": "3.14.7",
+  "procedures": [
+    "recover_then_wait",
+    "wait_during_outage",
+    "delayed_fault",
+    "cooldown"
+  ],
+  "repeats_per_procedure": 25,
+  "wait_budget": 2.0,
+  "schedule": "randomized interleaved",
+  "seed": 20261007
+}
